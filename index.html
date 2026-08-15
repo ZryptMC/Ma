@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f19">
+<meta name="description" content="game horror Don't Look Back">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Don't Look Back">
+<title> game horror Don't Look Back</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.cdnfonts.com/css/darkening">
+<style>
+  :root{
+    /* RenexaMC style: dark navy background + fuchsia accent, applied to
+       the horror theme instead of the old blood-red/ember palette. */
+    --blood: #ec4899;
+    --blood-bright: #f472b6;
+    --ember: #ec4899;
+    --bone: #ffffff;
+    --void: #0b0f19;
+    --panel: rgba(21,27,43,0.92);
+    --card-bg: #151b2b;
+    --sub-text: #9ca3af;
+    --border-color: #ec4899;
+    /* Hub (main menu) background image — swap this one line to customize
+       it later, or override it from JS with:
+       document.documentElement.style.setProperty('--hub-bg-image', "url('images/background/yourfile.png')") */
+    --hub-bg-image: url('images/background/background.png');
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:var(--void); color:var(--bone);
+    font-family: 'Tajawal', 'Segoe UI', Tahoma, Geneva, sans-serif;
+    user-select:none; touch-action:none; overscroll-behavior:none;
+  }
+  #gameCanvas{position:fixed; inset:0; display:block; width:100%; height:100%; touch-action:none;}
+
+  /* ---------- Shared overlay panel look ---------- */
+  .overlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; text-align:center; z-index:20;
+    background:
+      radial-gradient(ellipse at center, rgba(11,15,25,0.55) 0%, rgba(0,0,0,0.94) 78%),
+      #0b0f19;
+    animation: fadeIn 0.6s ease;
+  }
+  @keyframes fadeIn{from{opacity:0} to{opacity:1}}
+  .hidden{display:none !important;}
+
+  .title-flicker{
+    font-size: clamp(2.6rem, 9vw, 5.5rem);
+    letter-spacing: 0.12em;
+    color: var(--blood-bright);
+    text-shadow: 0 0 8px rgba(236,72,153,0.55), 0 0 30px rgba(236,72,153,0.25), 0 3px 0 #1c2438;
+    font-weight:800;
+    margin: 0 0 4px 0;
+    animation: flicker 4.5s infinite;
+  }
+  @keyframes flicker{
+    0%,19%,21%,23%,80%,100%{opacity:1;}
+    20%,22%,79%{opacity:0.35;}
+    50%{opacity:0.85;}
+  }
+  .subtitle{
+    color: #9ca3af; letter-spacing:0.35em; font-size: 0.85rem; margin-bottom: 2.2rem; text-transform:uppercase;
+  }
+  .panel-box{
+    background: var(--panel);
+    border: 1px solid #ec4899;
+    box-shadow: 0 0 0 1px #000, 0 0 60px rgba(236,72,153,0.15) inset, 0 20px 50px rgba(0,0,0,0.6);
+    padding: 1.6rem 2rem;
+    max-width: 520px;
+    width: 88vw;
+    border-radius: 4px;
+  }
+  .rule{ width:60px; height:2px; background:linear-gradient(90deg, transparent, var(--blood), transparent); margin: 0.9rem auto; }
+  .instructions{ text-align:right; line-height:2; font-size:0.98rem; color:#9ca3af; }
+  .instructions b{color:var(--ember); font-weight:700;}
+  .key{
+    display:inline-block; min-width:1.6em; padding:0.05em 0.4em; margin-inline-start:0.3em;
+    border:1px solid #ec4899; border-radius:4px; background:#151b2b; color:var(--bone);
+    font-family: monospace; font-size:0.85em;
+  }
+  .btn{
+    appearance:none; border:none; outline:none; cursor:pointer;
+    background: linear-gradient(45deg, #f472b6, #ec4899);
+    color:#ffffff; letter-spacing:0.15em; text-transform:uppercase;
+    font-size:1.05rem; font-weight:700; padding: 0.85rem 2.6rem; border-radius:12px;
+    box-shadow: 0 8px 22px rgba(236,72,153,0.4);
+    margin-top: 1.4rem; transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover{ transform: translateY(-2px); box-shadow: 0 10px 28px rgba(236,72,153,0.55); }
+  .btn:active{ transform: translateY(0px); }
+  .btn.secondary{
+    background: #151b2b;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  }
+  .btn.secondary:hover{ box-shadow: 0 10px 24px rgba(0,0,0,0.45); background:#1a2136; }
+  .small-note{ margin-top:1rem; font-size:0.72rem; color:#9ca3af; line-height:1.7; }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed; inset:0; pointer-events:none; z-index:10; display:none;
+  }
+  #hud.active{display:block;}
+  .hud-bottom{
+    position:absolute; bottom: 22px; left:0; right:0; display:flex; justify-content:center; gap: 28px;
+    align-items:flex-end;
+  }
+  .meter-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .meter-label{ font-size:0.65rem; letter-spacing:0.2em; color:#b8ada3; text-transform:uppercase; text-shadow:0 1px 2px #000;}
+  .meter{
+    width:150px; height:9px; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.15);
+    border-radius:5px; overflow:hidden;
+  }
+  .meter-fill{ height:100%; width:100%; transition: width 0.2s linear; }
+  #batteryFill{ background: linear-gradient(90deg, #e8973a, #f5c26b); }
+  #staminaFill{ background: linear-gradient(90deg, #4ea6e8, #7fd0ff); }
+
+  #keysHud{
+    position:absolute; top:20px; left:20px; display:flex; gap:8px; align-items:center;
+    background:rgba(0,0,0,0.4); padding:8px 14px; border-radius:20px; border:1px solid rgba(255,255,255,0.08);
+  }
+  .key-pip{ width:12px; height:12px; border-radius:2px; background:#332720; border:1px solid #5a463c; transform:rotate(45deg); }
+  .key-pip.filled{ background: var(--ember); box-shadow:0 0 8px var(--ember); }
+
+  #batteryHud{
+    position:absolute; top:20px; right:20px; direction:ltr; display:flex; align-items:center; gap:8px;
+    background:rgba(0,0,0,0.4); padding:7px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.08);
+  }
+  .battery-icon{ display:flex; align-items:center; }
+  .battery-body{
+    width:36px; height:17px; border:2px solid var(--bone); border-radius:3px; padding:2px; box-sizing:border-box;
+    display:flex; align-items:center;
+  }
+  .battery-nub{ width:3px; height:8px; background:var(--bone); border-radius:0 2px 2px 0; }
+  .battery-fill{ height:100%; width:100%; background:#5fd45f; border-radius:1px; transition:width 0.2s linear, background 0.3s ease; }
+  #batteryPercent{ font-size:0.8rem; color:#d1d5db; min-width:36px; text-align:left; font-variant-numeric:tabular-nums; }
+  #batteryHud.low .battery-fill{ background:#d63a3a; }
+  #batteryHud.low #batteryPercent{ color:#e86060; }
+  #batteryHud.low .battery-icon{ animation: battBlink 1s infinite; }
+  @keyframes battBlink{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+  #crosshair{
+    position:absolute; top:50%; left:50%; width:6px; height:6px; margin:-3px 0 0 -3px;
+    border-radius:50%; background: rgba(255,255,255,0.55); box-shadow:0 0 4px rgba(0,0,0,0.8);
+  }
+  #interactPrompt{
+    position:absolute; top:56%; left:50%; transform:translate(-50%,0);
+    font-size:0.85rem; color:#ffffff; background:rgba(0,0,0,0.55); padding:5px 12px; border-radius:4px;
+    opacity:0; transition:opacity 0.15s ease; letter-spacing:0.05em;
+  }
+  #interactPrompt.show{opacity:1;}
+
+  #vignette{
+    position:absolute; inset:0; pointer-events:none;
+    box-shadow: inset 0 0 160px 60px rgba(0,0,0,0.75);
+  }
+  #dangerVignette{
+    position:absolute; inset:0; pointer-events:none; opacity:0;
+    box-shadow: inset 0 0 220px 40px rgba(160,0,0,0.65);
+    transition: opacity 0.4s ease;
+  }
+  #staticFlash{
+    position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:30;
+  }
+
+  #objectiveToast{
+    position:absolute; top:20px; left:50%; transform:translate(-50%,-10px);
+    background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:4px;
+    padding:8px 18px; font-size:0.85rem; color:#d1d5db; opacity:0; transition: all 0.5s ease; text-align:center;
+  }
+  #objectiveToast.show{ opacity:1; transform:translate(-50%,0); }
+
+  /* Mobile touch controls */
+  #touchControls{ display:none; }
+  @media (pointer:coarse){
+    #touchControls{ display:block; }
+  }
+  #lookZone{ position:absolute; inset:0; pointer-events:auto; z-index:1; touch-action:none; }
+  .stick-zone{
+    position:absolute; bottom:26px; width:130px; height:130px; border-radius:50%;
+    background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.22); pointer-events:auto;
+    z-index:5; touch-action:none;
+  }
+  #moveStick{ left:22px; }
+  .stick-knob{
+    position:absolute; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,0.28);
+    top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;
+  }
+  #flashlightBtn{
+    position:absolute; bottom:170px; right:24px; width:64px; height:64px; border-radius:50%;
+    background:rgba(232,151,58,0.22); border:2px solid rgba(232,151,58,0.6); pointer-events:auto;
+    color:var(--ember); font-size:1.5rem; display:flex; align-items:center; justify-content:center;
+    z-index:5; touch-action:none;
+  }
+  /* Run + jump buttons — stacked above the flashlight button on the right,
+     same round-button look as flashlightBtn, just with their own tint. */
+  #runBtn, #jumpBtn{
+    position:absolute; right:24px; width:64px; height:64px; border-radius:50%;
+    pointer-events:auto; font-size:1.5rem; display:flex; align-items:center; justify-content:center;
+    z-index:5; touch-action:none;
+  }
+  #runBtn{
+    bottom:250px;
+    background:rgba(56,189,248,0.22); border:2px solid rgba(56,189,248,0.6); color:#7dd3fc;
+  }
+  #runBtn:active{ background:rgba(56,189,248,0.4); }
+  #jumpBtn{
+    bottom:330px;
+    background:rgba(74,222,128,0.22); border:2px solid rgba(74,222,128,0.6); color:#86efac;
+  }
+  #jumpBtn:active{ background:rgba(74,222,128,0.4); }
+
+  #loadingScreen{
+    position:fixed; inset:0; background:#0b0f19; z-index:40; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; color:#a89a8f; letter-spacing:0.2em; font-size:0.8rem;
+  }
+  .spinner{ width:34px; height:34px; border-radius:50%; border:2px solid #ec4899; border-top-color: var(--blood-bright); animation: spin 0.9s linear infinite; margin-bottom:14px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Menu extras: settings gear, forms, multiplayer screens ---------- */
+  #settingsGearBtn{
+    position:fixed; top:18px; left:18px; z-index:25; width:44px; height:44px; border-radius:50%;
+    background:rgba(21,27,43,0.8); border:1px solid #ec4899; color:var(--bone); font-size:1.25rem;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  #versionTag{
+    position:fixed; bottom:10px; right:14px; z-index:25; font-size:0.68rem; color:#9ca3af; letter-spacing:0.1em;
+  }
+  /* Floating "back to my room" button — stays on screen (hub, shop, etc.)
+     while the player has left the lobby view to browse but is still
+     connected to a room in the background, so they don't lose their spot. */
+  #mpReturnToRoomBtn{
+    position:fixed; bottom:24px; right:24px; z-index:80; width:58px; height:58px; border-radius:50%;
+    border:none; cursor:pointer; background:linear-gradient(180deg,#f472b6,#ec4899); color:#1a0a12;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    box-shadow:0 8px 24px rgba(236,72,153,0.5); font-weight:700; animation:mpReturnPulse 1.8s ease-in-out infinite;
+  }
+  #mpReturnToRoomBtn.hidden{ display:none !important; }
+  #mpReturnToRoomBtn i{ font-size:1.05rem; }
+  #mpReturnToRoomBtn span{ font-size:0.68rem; }
+  @keyframes mpReturnPulse{
+    0%,100%{ box-shadow:0 8px 24px rgba(236,72,153,0.5); }
+    50%{ box-shadow:0 8px 30px rgba(236,72,153,0.9); }
+  }
+  .menu-row{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .form-group{ text-align:right; margin-top:1rem; }
+  .form-group label{ display:block; font-size:0.8rem; color:#9ca3af; margin-bottom:0.4rem; letter-spacing:0.03em; }
+  .form-group input[type="range"]{ width:100%; accent-color:#ec4899; }
+  .form-group input[type="number"]{
+    width:100%; padding:0.55rem 0.7rem; border-radius:4px; border:1px solid #ec4899;
+    background:#151b2b; color:#ffffff; font-size:0.95rem; text-align:center;
+  }
+  .form-group select{
+    width:100%; padding:0.55rem 0.7rem; border-radius:4px; border:1px solid #ec4899;
+    background:#151b2b; color:#ffffff; font-size:0.95rem;
+  }
+  .range-val{ float:left; color:var(--ember); font-size:0.78rem; }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; margin-top:1rem; }
+  .switch{ position:relative; width:46px; height:26px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch-track{
+    position:absolute; inset:0; background:#1c2438; border-radius:20px; cursor:pointer; transition:0.2s;
+    border:1px solid #ec4899;
+  }
+  .switch-track:before{
+    content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#f9fafb;
+    border-radius:50%; transition:0.2s;
+  }
+  .switch input:checked + .switch-track{ background:#ec4899; }
+  .switch input:checked + .switch-track:before{ transform:translateX(20px); background:var(--ember); }
+  .code-display{
+    font-size:2.4rem; letter-spacing:0.35em; color:var(--ember); font-weight:800; text-align:center;
+    margin:1rem 0; text-shadow:0 0 18px rgba(232,151,58,0.4);
+  }
+  .code-input{
+    width:100%; padding:0.9rem; border-radius:4px; border:1px solid #ec4899; background:#151b2b;
+    color:#ffffff; text-align:center; font-size:1.6rem; letter-spacing:0.3em; text-transform:uppercase;
+  }
+  .player-list{ text-align:right; margin-top:1rem; list-style:none; padding:0; }
+  .player-list li{
+    display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.7rem; margin-bottom:6px;
+    background:rgba(255,255,255,0.04); border-radius:4px; font-size:0.92rem; color:#d1d5db;
+  }
+  .player-list li .host-tag{ font-size:0.7rem; color:var(--ember); }
+  .error-msg{ color:#e85555; font-size:0.85rem; margin-top:0.6rem; min-height:1.2em; }
+  .char-pick{ display:flex; gap:12px; justify-content:center; margin-top:0.4rem; }
+  .char-pick label{
+    flex:1; text-align:center; padding:0.8rem; border-radius:4px; border:1px solid #ec4899;
+    background:#151b2b; cursor:pointer; color:#9ca3af; font-size:0.9rem;
+  }
+  .char-pick input{ display:none; }
+  .char-pick input:checked + span{ color:var(--ember); font-weight:700; }
+  .char-pick label:has(input:checked){ border-color:var(--ember); box-shadow:0 0 0 1px var(--ember) inset; }
+
+  /* ---------- Hub screen (new main menu) ---------- */
+  #hubScreen{
+    position:fixed; inset:0; z-index:20; display:flex; overflow:hidden;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(236,72,153,0.18) 0%, rgba(0,0,0,0.92) 70%),
+      #0b0f19;
+    font-family:'Segoe UI', Tahoma, sans-serif; animation: fadeIn 0.6s ease;
+  }
+  #hubScreen.hidden{display:none !important;}
+  #hubScreen .hub-bg{
+    position:absolute; inset:0; z-index:0;
+    background-color:#0a0707;
+    /* Dark horror-toned overlay on top of the customizable background
+       image, so the UI text on top stays readable regardless of which
+       image is used (see --hub-bg-image above). */
+    background-image:
+      linear-gradient(180deg, rgba(10,7,7,0.55) 0%, rgba(10,7,7,0.78) 55%, rgba(11,15,25,0.94) 100%),
+      var(--hub-bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  /* left sidebar nav */
+  .hub-nav{
+    position:relative; z-index:2; width:80px; height:100%;
+    background:rgba(11,15,25,0.94); border-inline-end:1px solid rgba(236,72,153,0.18);
+    display:flex; flex-direction:column; align-items:center; padding:16px 0; gap:6px;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.35);
+  }
+  .hub-nav-item{
+    width:60px; padding:10px 0; display:flex; flex-direction:column; align-items:center; gap:5px;
+    color:#6b7280; font-size:0.6rem; cursor:pointer; border:none; background:none;
+    letter-spacing:0.02em; border-radius:12px; transition: all 0.2s ease;
+  }
+  .hub-nav-item .ic{font-size:1.25rem; width:1em;}
+  .hub-nav-item:not(:disabled):hover{ background:rgba(236,72,153,0.1); color:#f472b6; transform:translateY(-2px); }
+  .hub-nav-item.active{color:#f472b6; background:rgba(236,72,153,0.12);}
+  .hub-nav-item.play{
+    background:linear-gradient(180deg, rgba(236,72,153,0.25), rgba(236,72,153,0.05));
+    color:#f472b6; box-shadow:0 0 0 1px rgba(236,72,153,0.25) inset;
+  }
+  .hub-nav-item:disabled{opacity:0.32; cursor:not-allowed;}
+
+  .hub-main{position:relative; z-index:2; flex:1; min-height:0; display:flex; flex-direction:column; padding:20px 24px; overflow-y:auto;}
+
+  /* ---------- Market (fullscreen — whole phone screen, no small window) ---------- */
+  #marketScreen{
+    position:fixed; inset:0; width:100vw; height:100vh; z-index:60;
+    background: radial-gradient(ellipse at 50% 0%, rgba(236,72,153,0.10) 0%, rgba(11,15,25,0.98) 60%), #0b0f19;
+    display:flex; flex-direction:column; animation: fadeIn 0.25s ease;
+  }
+  #marketScreen.hidden{ display:none !important; }
+  /* ---------- Market — crate-shop style (tabs + toolbar + card grid) ---------- */
+  .market-topbar{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-bottom:1px solid rgba(236,72,153,0.18); flex:0 0 auto;
+    flex-wrap:wrap;
+  }
+  .market-back-btn{
+    width:40px; height:40px; border-radius:50%; border:1px solid rgba(236,72,153,0.3);
+    background:rgba(236,72,153,0.08); color:var(--bone); font-size:1rem; cursor:pointer;
+    flex:0 0 auto;
+  }
+  /* Pill tabs — MARKET / REQUESTS / SHOP, like the reference design.
+     Only the "market" tab is wired to real content right now; the other
+     two are visual placeholders that toast "coming soon" when tapped. */
+  .market-tabs{ display:flex; gap:8px; flex:1 1 auto; min-width:0; }
+  .market-tab{
+    border:1px solid rgba(236,72,153,0.22); background:rgba(255,255,255,0.04);
+    color:var(--sub-text); font-family:inherit; font-weight:700; font-size:0.8rem;
+    padding:9px 14px; border-radius:999px; cursor:pointer; white-space:nowrap;
+  }
+  .market-tab.active{ background:var(--bone); color:#151022; border-color:var(--bone); }
+  /* Filter / sort / balance toolbar — sits on its own row under the tabs
+     so it never gets cramped against the back button on narrow phones. */
+  .market-toolbar{
+    display:flex; align-items:center; gap:8px; padding:8px 14px 0 14px; flex:0 0 auto;
+  }
+  .market-filter-btn{
+    display:flex; align-items:center; gap:8px; border:1px solid rgba(236,72,153,0.22);
+    background:rgba(255,255,255,0.04); color:var(--bone); font-family:inherit;
+    font-weight:600; font-size:0.78rem; padding:9px 14px; border-radius:10px; cursor:pointer;
+  }
+  .market-sort-btn{
+    width:38px; height:38px; border-radius:10px; border:1px solid rgba(236,72,153,0.22);
+    background:rgba(255,255,255,0.04); color:var(--bone); font-size:0.85rem; cursor:pointer; flex:0 0 auto;
+  }
+  .market-balance{
+    margin-inline-start:auto; display:flex; align-items:center; gap:6px;
+    border:1px solid rgba(236,72,153,0.22); background:rgba(255,255,255,0.04);
+    padding:8px 14px; border-radius:999px; font-weight:700; font-size:0.85rem;
+    color:#facc15; flex:0 0 auto;
+  }
+  .market-balance svg{ width:31px; height:31px; display:block; flex:0 0 auto; }
+  .market-grid{
+    flex:1; min-height:0; overflow-y:auto; padding:10px 12px;
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;
+    align-content:start;
+  }
+  .market-empty{
+    grid-column:1/-1; text-align:center; color:var(--sub-text); font-size:0.8rem; padding:24px 0;
+  }
+  /* Vertical card — art on top, name/category under it, buy button
+     pinned to the bottom. The game is locked landscape, so the screen
+     is wide and short — a tall/square image ate most of the available
+     height and forced heavy scrolling. A wide (16:9-ish) image keeps
+     each card short enough that a full row is visible without scrolling. */
+  .market-card{
+    background:var(--card-bg); border:1px solid rgba(236,72,153,0.18); border-radius:10px;
+    overflow:hidden; display:flex; flex-direction:column;
+    box-shadow:0 4px 14px rgba(0,0,0,0.3);
+  }
+  .market-card img{
+    width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#0b0f19;
+  }
+  .market-card-body{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; padding:6px 6px 8px;}
+  .market-card-category{font-size:0.54rem; color:var(--sub-text); letter-spacing:0.03em;}
+  .market-card-name{font-weight:700; font-size:0.68rem; line-height:1.15; margin-bottom:1px;}
+  .market-card-desc{font-size:0.58rem; color:var(--sub-text); line-height:1.2; flex:1;}
+  .market-buy-btn{
+    margin-top:5px; border:none; border-radius:8px; padding:6px 6px; font-weight:700; cursor:pointer;
+    background:linear-gradient(180deg, #f472b6, #ec4899); color:#1a0a12; font-size:0.66rem;
+    width:100%;
+  }
+  .market-buy-btn.owned{ background:rgba(236,72,153,0.12); color:var(--blood-bright); border:1px solid rgba(236,72,153,0.35); }
+  .market-buy-btn.equipped{ background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.4); }
+
+  /* ---------- Multiplayer room browser ---------- */
+  .mp-browse{
+    position:fixed; inset:0; width:100vw; height:100vh; z-index:60;
+    background:#0b0f19; display:flex; flex-direction:column; animation:fadeIn 0.2s ease;
+  }
+  .mp-browse.hidden{ display:none !important; }
+  .mp-browse-topbar{
+    display:flex; align-items:center; gap:10px; padding:14px 16px;
+    border-bottom:1px solid rgba(236,72,153,0.18); flex:0 0 auto; flex-wrap:wrap;
+  }
+  .mp-browse-tabs{ display:flex; gap:8px; }
+  .mp-tab{
+    border:1px solid rgba(236,72,153,0.25); background:rgba(236,72,153,0.06); color:var(--sub-text);
+    border-radius:8px; padding:8px 18px; font-weight:700; font-size:0.88rem; cursor:pointer;
+  }
+  .mp-tab.active{ background:rgba(236,72,153,0.18); color:var(--bone); border-color:rgba(236,72,153,0.5); }
+  .mp-browse-refresh{
+    width:34px; height:34px; border-radius:50%; border:1px solid rgba(236,72,153,0.25);
+    background:rgba(236,72,153,0.06); color:var(--bone); cursor:pointer; flex:0 0 auto;
+  }
+  .mp-browse-refresh.spinning i{ animation:spin 0.7s linear infinite; }
+  .mp-browse-spacer{ flex:1; }
+  .mp-filter-btn{
+    border:1px solid rgba(236,72,153,0.25); background:rgba(236,72,153,0.06); color:var(--bone);
+    border-radius:8px; padding:8px 14px; font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:8px;
+  }
+  .mp-search-box{
+    display:flex; align-items:center; gap:8px; border:1px solid rgba(236,72,153,0.25);
+    background:rgba(236,72,153,0.06); border-radius:8px; padding:8px 12px; color:var(--sub-text); min-width:180px;
+  }
+  .mp-search-box input{
+    background:none; border:none; outline:none; color:var(--bone); font-size:0.85rem; width:100%;
+    font-family:inherit; direction:rtl;
+  }
+  .mp-browse-header-row{
+    display:flex; align-items:center; gap:14px; padding:10px 22px;
+    border-bottom:1px solid rgba(255,255,255,0.06); color:var(--sub-text); font-size:0.82rem; flex:0 0 auto;
+  }
+  .mp-browse-header-row .mp-col-star{ color:var(--blood-bright); }
+  .mp-browse-list{ flex:1; min-height:0; overflow-y:auto; }
+  .mp-col-star{ flex:0 0 20px; text-align:center; }
+  .mp-col-name{ flex:1; min-width:0; }
+  .mp-col-mode{ flex:0 0 110px; text-align:center; }
+  .mp-col-settings{ flex:0 0 90px; text-align:center; }
+  .mp-col-players{ flex:0 0 60px; text-align:center; font-weight:700; }
+  .mp-room-row{
+    display:flex; align-items:center; gap:14px; padding:12px 22px; cursor:pointer;
+    border-bottom:1px solid rgba(255,255,255,0.04); transition:background 0.15s;
+  }
+  .mp-room-row:hover, .mp-room-row:active{ background:rgba(236,72,153,0.07); }
+  .mp-room-row .mp-col-name{ display:flex; flex-direction:column; gap:2px; }
+  .mp-room-code{ font-size:0.72rem; color:var(--sub-text); letter-spacing:1px; }
+  .mp-room-host{ font-weight:700; font-size:0.95rem; color:var(--bone); }
+  .mp-room-map{ font-size:0.78rem; color:var(--sub-text); }
+  .mp-col-mode, .mp-col-settings{ font-size:0.82rem; color:var(--sub-text); }
+  .mp-col-players{ color:var(--blood-bright); font-size:0.9rem; }
+  .mp-browse-empty{ padding:60px 20px; text-align:center; color:var(--sub-text); font-size:0.9rem; }
+  .mp-browse-back{
+    position:absolute; top:14px; left:16px; width:36px; height:36px; border-radius:50%;
+    border:1px solid rgba(236,72,153,0.3); background:rgba(11,15,25,0.8); color:var(--bone); cursor:pointer; z-index:2;
+  }
+  .mp-create-circle-wrap{
+    position:absolute; bottom:24px; left:24px; z-index:3;
+    display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;
+    background:none; border:none; padding:0;
+  }
+  .mp-create-circle{
+    width:52px; height:52px; background:#e9e5da; position:relative; flex:0 0 auto;
+    box-shadow:0 8px 18px rgba(0,0,0,0.55);
+    clip-path: polygon(50% 2%, 61% 8%, 70% 3%, 75% 14%, 88% 12%, 87% 24%, 98% 30%, 90% 39%,
+      97% 50%, 88% 57%, 93% 69%, 81% 71%, 79% 84%, 68% 79%, 61% 90%, 52% 80%,
+      41% 91%, 36% 79%, 24% 84%, 23% 71%, 10% 70%, 16% 58%, 4% 50%, 14% 40%,
+      5% 29%, 17% 25%, 15% 12%, 27% 15%, 33% 4%, 42% 10%);
+  }
+  .mp-create-circle::before, .mp-create-circle::after{
+    content:""; position:absolute; top:50%; left:50%; background:#15141a; transform:translate(-50%,-50%);
+  }
+  .mp-create-circle::before{ width:22px; height:5px; border-radius:1px; }
+  .mp-create-circle::after{ width:5px; height:22px; border-radius:1px; }
+  .mp-create-circle-label{ color:var(--bone); font-size:0.7rem; font-weight:700; letter-spacing:0.03em; }
+
+  .hub-topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;}
+  .hub-stat-box{
+    background:#151b2b; border:1px solid rgba(236,72,153,0.18); border-left:3px solid #ec4899;
+    border-radius:14px; padding:12px 16px; min-width:230px; box-shadow:0 8px 20px rgba(0,0,0,0.3);
+  }
+  .hub-stat-box .stat-label{font-size:0.68rem; color:#9ca3af; letter-spacing:0.06em; display:flex; align-items:center; gap:6px;}
+  .hub-stat-box .stat-row{display:flex; justify-content:space-between; align-items:center; margin-top:2px;}
+  .hub-stat-box .stat-val{font-size:0.95rem; color:#fff; font-weight:700;}
+  .hub-bar-track{height:6px; background:#0b0f19; border-radius:4px; margin-top:8px; overflow:hidden;}
+  .hub-bar-fill{height:100%; background:linear-gradient(90deg,#ec4899,#f472b6);}
+
+  .hub-account{
+    background:#151b2b; border:1px solid rgba(236,72,153,0.18); border-radius:14px;
+    padding:10px 14px; font-size:0.78rem; display:flex; align-items:center; gap:10px; min-width:210px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.3);
+  }
+  .hub-account img{width:28px; height:28px; border-radius:50%; border:2px solid #ec4899;}
+  .hub-account .g-btn{
+    background:#fff; color:#1f2937; border:none; border-radius:8px; padding:8px 12px;
+    font-size:0.75rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;
+    transition: transform 0.15s ease;
+  }
+  .hub-account .g-btn:hover{ transform:scale(1.03); }
+
+  .hub-center{flex:1; display:flex; align-items:center; justify-content:center; position:relative;}
+  .hub-char-card{
+    /* Card background/border/shadow removed on request — the character now
+       floats directly over the hub background instead of sitting in a box.
+       Size/position kept as-is so the canvas and name-tag layout doesn't move. */
+    width:min(46vw, 280px); aspect-ratio:2/3; position:relative;
+    display:flex; align-items:center; justify-content:center; overflow:visible;
+  }
+  .hub-char-card .silhouette{
+    font-size:min(16vw,110px); color:#f472b6; filter:drop-shadow(0 0 25px rgba(236,72,153,0.4));
+    transition: opacity 0.4s ease;
+  }
+  #hubCharCanvas{
+    position:absolute; inset:0; width:100%; height:100%; display:block;
+    opacity:0; transition: opacity 0.5s ease;
+  }
+  #hubCharCanvas.ready{ opacity:1; }
+  .hub-char-card .name-tag{
+    position:absolute; bottom:14px; background:rgba(11,15,25,0.85); border:1px solid rgba(236,72,153,0.3);
+    border-radius:10px; padding:6px 18px; font-size:0.82rem; color:#fff; display:flex; align-items:center; gap:6px;
+  }
+
+  .hub-bottombar{display:flex; justify-content:flex-end; align-items:flex-end; gap:16px;}
+  .hub-play-btn{
+    background:linear-gradient(45deg,#f472b6,#ec4899);
+    color:#fff; border:none; border-radius:14px; padding:16px 50px; font-size:1.1rem;
+    font-weight:900; letter-spacing:0.08em; cursor:pointer; box-shadow:0 4px 20px rgba(236,72,153,0.4);
+    display:flex; align-items:center; gap:10px; transition: all 0.2s ease;
+  }
+  .hub-play-btn:hover{ transform:scale(1.03); box-shadow:0 6px 24px rgba(236,72,153,0.55); }
+  .hub-play-btn:active{transform:translateY(1px) scale(1);}
+  .hub-soon-badge{font-size:0.62rem; color:#6b7280; margin-top:6px; text-align:center;}
+  .hub-side-btn{
+    display:flex; flex-direction:column; align-items:center; gap:6px; color:#9ca3af;
+    background:#151b2b; border:none; border-radius:14px; box-shadow:0 8px 20px rgba(0,0,0,0.3);
+    padding:12px 18px; cursor:pointer; font-size:0.72rem; transition: all 0.2s ease;
+  }
+  .hub-side-btn:hover{ color:#f472b6; box-shadow:0 10px 24px rgba(236,72,153,0.25); transform:translateY(-2px); }
+  .hub-side-btn .ic{font-size:1.3rem;}
+  #hubVersionTag{position:absolute; bottom:10px; left:14px; z-index:3; font-size:0.68rem; color:#6b7280; opacity:0.8;}
+
+  /* When the browser window/viewport is short — phone not in fullscreen,
+     or the page shrunk — the top stat box, the character and the bottom
+     play bar used to overlap each other since hub-center just took up all
+     the leftover space with no minimum. This scales things down and lets
+     hub-main scroll instead of clipping/overlapping. */
+  @media (max-height: 560px) {
+    .hub-main{ padding:10px 16px; }
+    .hub-topbar{ gap:8px; }
+    .hub-stat-box{ padding:8px 12px; min-width:170px; }
+    .hub-account{ padding:6px 10px; min-width:140px; font-size:0.68rem; }
+    .hub-center{ flex:none; margin:8px 0; }
+    .hub-char-card{ width:min(30vw, 170px); }
+    .hub-bottombar{ gap:8px; }
+    .hub-play-btn{ padding:10px 30px; font-size:0.9rem; }
+    .hub-side-btn{ padding:8px 12px; }
+  }
+
+  /* ================================================================
+     NEW: Auth / splash screen — the very first thing the player sees.
+     Nothing else exists behind it (no hub, no HUD) until they pick an
+     entry method.
+  ================================================================ */
+  #authScreen{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(236,72,153,0.14) 0%, rgba(0,0,0,0.95) 65%),
+      #0a0d16;
+    animation: fadeIn 0.5s ease;
+  }
+  #authScreen.hidden{display:none !important;}
+  .auth-box{ width:min(92vw, 420px); text-align:center; }
+  .auth-logo{ font-size:3.2rem; margin-bottom:0.2rem; filter:drop-shadow(0 0 18px rgba(236,72,153,0.5)); }
+  .auth-title{ font-size:1.6rem; font-weight:800; color:#f472b6; letter-spacing:0.08em; margin:0 0 0.3rem; }
+  /* Dripping horror display font — used only for the English game titles
+     (Darkening has no Arabic glyphs, so Arabic UI text stays on Tajawal). */
+  .horror-font{
+    font-family:'Darkening', 'Tajawal', sans-serif;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+  }
+  .auth-sub{ font-size:0.78rem; color:#6b7280; letter-spacing:0.15em; margin-bottom:1.8rem; text-transform:uppercase; }
+  .auth-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    background:#151b2b; border:none; outline:none; color:#fff;
+    padding:0.85rem 1rem; border-radius:12px; font-size:0.95rem; font-weight:700;
+    cursor:pointer; margin-bottom:0.7rem; transition:all 0.2s ease;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  }
+  .auth-btn:hover{ transform:translateY(-1px); background:#1a2136; box-shadow:0 8px 20px rgba(0,0,0,0.45); }
+  .auth-btn.primary{ background:linear-gradient(45deg,#f472b6,#ec4899); border:none; box-shadow:0 6px 20px rgba(236,72,153,0.35); }
+  .auth-btn.google{ background:#fff; color:#1f2937; }
+  .auth-divider{ display:flex; align-items:center; gap:10px; margin:1rem 0; color:#4b5563; font-size:0.72rem; }
+  .auth-divider::before,.auth-divider::after{ content:''; flex:1; height:1px; background:#232a3d; }
+  .auth-name-form{ display:none; gap:8px; margin-top:0.4rem; }
+  .auth-name-form.show{ display:flex; }
+  .auth-name-form input{
+    flex:1; padding:0.75rem 0.9rem; border-radius:10px; border:1px solid rgba(236,72,153,0.3);
+    background:#151b2b; color:#fff; font-size:0.9rem; text-align:center;
+  }
+  .auth-error{ color:#e85555; font-size:0.78rem; margin-top:0.6rem; min-height:1.1em; }
+
+  /* Skin pick — same fullscreen splash treatment as the auth screen */
+  #skinPickScreen{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(236,72,153,0.14) 0%, rgba(0,0,0,0.95) 65%),
+      #0a0d16;
+    animation: fadeIn 0.5s ease;
+  }
+  #skinPickScreen.hidden{display:none !important;}
+  #boySkinPickScreen{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(236,72,153,0.14) 0%, rgba(0,0,0,0.95) 65%),
+      #0a0d16;
+    animation: fadeIn 0.5s ease;
+  }
+  #boySkinPickScreen.hidden{display:none !important;}
+  .skin-pick-row{ display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+  .skin-pick-card{
+    appearance:none; border:none; cursor:pointer; width:130px; padding:1.6rem 0.8rem;
+    background:#151b2b; border-radius:16px; color:#9ca3af; display:flex; flex-direction:column;
+    align-items:center; gap:10px; box-shadow:0 8px 20px rgba(0,0,0,0.35); transition:all 0.2s ease;
+  }
+  .skin-pick-card i{ font-size:2.2rem; }
+  .skin-pick-card span{ font-size:0.9rem; font-weight:700; }
+  .skin-pick-card:hover{ transform:translateY(-3px); color:#fff; box-shadow:0 10px 26px rgba(236,72,153,0.3); }
+  .skin-pick-card.selected{ background:linear-gradient(45deg,#f472b6,#ec4899); color:#fff; }
+
+  /* Fallback prompt if landscape lock isn't supported by the browser */
+  #rotateOverlay{
+    position:fixed; inset:0; z-index:200; display:none; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; background:#05060a; color:#e5e7eb; text-align:center; padding:2rem;
+  }
+  #rotateOverlay.show{ display:flex; }
+  #rotateOverlay .ic{ font-size:2.6rem; color:#f472b6; animation: rotHint 1.6s ease-in-out infinite; }
+  @keyframes rotHint{ 0%,100%{transform:rotate(0deg);} 50%{transform:rotate(90deg);} }
+  @media (orientation:landscape){ #rotateOverlay{ display:none !important; } }
+
+  /* ================================================================
+     NEW: Character / map lobby screen (opens when PLAY is pressed
+     from the hub — this is where you pick your look + the map, not
+     an instant game start).
+  ================================================================ */
+  #charLobbyScreen{
+    position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
+    background: radial-gradient(ellipse at 50% 0%, rgba(236,72,153,0.14), transparent 60%), #0a0d16;
+    animation: fadeIn 0.4s ease;
+  }
+  #charLobbyScreen.hidden{ display:none !important; }
+  .cl-topbar{ display:flex; align-items:center; justify-content:space-between; padding:14px 20px; }
+  .cl-back{
+    background:rgba(21,27,43,0.9); border:none; color:#fff; box-shadow:0 6px 16px rgba(0,0,0,0.3);
+    border-radius:10px; padding:9px 16px; font-size:0.85rem; cursor:pointer; display:flex; gap:8px; align-items:center;
+  }
+  .cl-xp-box{
+    background:#151b2b; border:1px solid rgba(236,72,153,0.2); border-radius:12px; padding:8px 16px;
+    min-width:210px; text-align:right;
+  }
+  .cl-xp-box .lbl{ font-size:0.66rem; color:#9ca3af; display:flex; justify-content:space-between; }
+  .cl-xp-box .bar{ height:6px; background:#0b0f19; border-radius:4px; margin-top:6px; overflow:hidden; }
+  .cl-xp-box .bar span{ display:block; height:100%; background:linear-gradient(90deg,#ec4899,#f472b6); }
+  .cl-xp-note{ font-size:0.6rem; color:#6b7280; margin-top:4px; }
+
+  .cl-body{ flex:1; display:flex; align-items:center; justify-content:center; gap:6vw; padding:0 4vw; overflow:hidden; }
+  .cl-char-stage{
+    width:min(30vw, 260px); aspect-ratio:2/3; position:relative; border-radius:18px;
+    background:radial-gradient(ellipse at 50% 15%, rgba(236,72,153,0.16), transparent 65%), #10131f;
+    border:1px solid rgba(236,72,153,0.2); box-shadow:0 20px 45px rgba(0,0,0,0.4);
+  }
+  #clCharCanvas{ position:absolute; inset:0; width:100%; height:100%; opacity:0; transition:opacity 0.5s ease; }
+  #clCharCanvas.ready{ opacity:1; }
+  .cl-char-stage .silhouette{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:min(12vw,90px); color:#f472b6; opacity:0.5;
+  }
+
+  .cl-maps{ display:flex; flex-direction:column; gap:12px; max-width:340px; }
+  .cl-maps-title{ font-size:0.75rem; color:#9ca3af; letter-spacing:0.1em; margin-bottom:2px; }
+  .map-card{
+    display:flex; align-items:center; gap:12px; background:#151b2b; border:2px solid transparent;
+    border-radius:12px; padding:8px; cursor:pointer; transition:all 0.15s ease;
+  }
+  .map-card:hover{ border-color:rgba(236,72,153,0.35); }
+  .map-card.selected{ border-color:#ec4899; box-shadow:0 0 0 1px rgba(236,72,153,0.25) inset; }
+  .map-card .thumb{
+    width:56px; height:56px; border-radius:8px; background-size:cover; background-position:center;
+    flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.4rem; color:#fff;
+    background-color:#0b0f19;
+  }
+  .map-card .info{ text-align:right; flex:1; }
+  .map-card .info .name{ font-size:0.88rem; font-weight:700; color:#fff; }
+  .map-card .info .desc{ font-size:0.68rem; color:#9ca3af; }
+  .map-card.soon{ opacity:0.45; cursor:not-allowed; }
+  .map-card.soon .info .desc{ color:#f472b6; }
+
+  .cl-bottombar{
+    display:flex; justify-content:flex-end; align-items:center; gap:14px; padding:18px 24px;
+  }
+  .cl-freddy-btn{
+    display:flex; flex-direction:column; align-items:center; gap:4px; color:#9ca3af;
+    background:#151b2b; border:none; border-radius:14px; box-shadow:0 8px 20px rgba(0,0,0,0.3);
+    padding:12px 16px; cursor:pointer; font-size:0.68rem; transition:all 0.2s ease;
+  }
+  .cl-freddy-btn:hover{ color:#f472b6; box-shadow:0 10px 24px rgba(236,72,153,0.25); transform:translateY(-2px); }
+  .cl-freddy-btn .ic{ font-size:1.3rem; }
+  .cl-play-btn{
+    background:linear-gradient(45deg,#f472b6,#ec4899); color:#fff; border:none; border-radius:14px;
+    padding:16px 46px; font-size:1.05rem; font-weight:900; letter-spacing:0.08em; cursor:pointer;
+    box-shadow:0 4px 20px rgba(236,72,153,0.4); display:flex; align-items:center; gap:10px;
+  }
+  .cl-play-btn:hover{ transform:scale(1.03); }
+
+  /* ================================================================
+     Settings tabs (graphics / audio / general)
+  ================================================================ */
+  .settings-tabs{ display:flex; gap:6px; margin-bottom:0.9rem; }
+  .settings-tab{
+    flex:1; background:#151b2b; border:none; color:#9ca3af;
+    padding:0.55rem 0.4rem; border-radius:8px; font-size:0.78rem; cursor:pointer; text-align:center;
+  }
+  .settings-tab.active{ background:linear-gradient(45deg,#f472b6,#ec4899); color:#fff; }
+  .settings-panel{ display:none; }
+  .settings-panel.active{ display:block; }
+
+  /* ================================================================
+     Friends screen (stub UI for this phase — no backend yet)
+  ================================================================ */
+  .friend-add-row{ display:flex; gap:8px; margin-top:0.4rem; }
+  .friend-add-row input{
+    flex:1; padding:0.6rem 0.7rem; border-radius:4px; border:1px solid #ec4899; background:#151b2b;
+    color:#fff; text-align:center; font-size:0.9rem;
+  }
+  .friend-add-row button{
+    background:linear-gradient(180deg,#ec4899,#9d174d); border:none; color:#fff; border-radius:4px;
+    padding:0 1.1rem; cursor:pointer; font-size:0.85rem;
+  }
+  .friend-soon-note{
+    margin-top:0.9rem; font-size:0.78rem; color:#9ca3af; line-height:1.8;
+    background:rgba(236,72,153,0.08); border:1px dashed rgba(236,72,153,0.3); border-radius:8px; padding:0.7rem 0.9rem;
+  }
+
+  /* ================================================================
+     Game Over buttons — smooth, borderless, matching the rest of the site
+  ================================================================ */
+  .btn-cracked{
+    position:relative; appearance:none; cursor:pointer;
+    background: linear-gradient(45deg, #f472b6, #ec4899); color:#ffffff; border:none;
+    border-radius:12px; font-size:1.02rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase;
+    padding:0.9rem 2.6rem; margin-top:1rem; box-shadow:0 8px 22px rgba(236,72,153,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-cracked:hover{ transform:translateY(-2px); box-shadow:0 10px 28px rgba(236,72,153,0.55); }
+  .btn-cracked:active{ transform:translateY(0); }
+  .btn-cracked .crack{ display:none; }
+  .btn-cracked span{ position:relative; z-index:2; }
+  .btn-cracked.exit{ background:#151b2b; box-shadow:0 8px 20px rgba(0,0,0,0.35); }
+  .btn-cracked.exit:hover{ box-shadow:0 10px 24px rgba(0,0,0,0.45); }
+
+  #deathScreen .panel-box{ background:rgba(10,5,6,0.94); border-color:#7a1414; }
+  #deathScreen .go-buttons{ display:flex; gap:14px; justify-content:center; margin-top:1.2rem; flex-wrap:wrap; }
+
+  /* ================================================================
+     Friends screen — code box, requests, list
+  ================================================================ */
+  .nav-badge{
+    position:absolute; top:2px; left:2px; background:#ec4899; color:#fff; font-size:0.62rem;
+    font-weight:800; border-radius:999px; min-width:16px; height:16px; display:flex; align-items:center;
+    justify-content:center; padding:0 4px; box-shadow:0 0 0 2px #0a0d16;
+  }
+  .my-code-box{ background:#151b2b; border:1px solid rgba(236,72,153,0.25); border-radius:10px; padding:0.7rem 0.9rem; margin-bottom:0.9rem; }
+  .my-code-box .lbl, #friendsScreen .lbl{ font-size:0.72rem; color:#9ca3af; margin-bottom:4px; }
+  .code-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .code-row span{ font-size:1.15rem; font-weight:800; color:#f472b6; letter-spacing:0.06em; direction:ltr; }
+  .code-row button{ background:rgba(236,72,153,0.15); border:none; color:#fff; border-radius:8px; width:34px; height:34px; cursor:pointer; }
+  #friendRequestsBox{ margin-top:0.8rem; background:rgba(236,72,153,0.07); border:1px dashed rgba(236,72,153,0.3); border-radius:10px; padding:0.6rem 0.8rem; }
+  #friendsScreen .player-list li, #friendRequestsList li{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:#151b2b; border-radius:8px; padding:0.5rem 0.7rem; margin-bottom:6px; font-size:0.85rem;
+  }
+  .friend-row-actions{ display:flex; gap:6px; }
+  .friend-row-actions button{
+    border:none; border-radius:6px; padding:0.35rem 0.7rem; font-size:0.72rem; cursor:pointer; font-weight:700;
+  }
+  .fr-accept{ background:linear-gradient(180deg,#22c55e,#15803d); color:#fff; }
+  .fr-decline{ background:#2a2f3f; color:#cbd5e1; }
+  .fr-invite{ background:linear-gradient(180deg,#ec4899,#9d174d); color:#fff; }
+  .fr-invite:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  #inviteToast{
+    position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:300;
+    background:#151b2b; border:1px solid #ec4899; border-radius:12px; padding:0.8rem 1rem;
+    display:flex; align-items:center; gap:12px; color:#fff; font-size:0.85rem; box-shadow:0 10px 30px rgba(0,0,0,0.5);
+  }
+  #inviteToast.hidden{ display:none; }
+  #inviteToast button{ border:none; border-radius:8px; padding:0.4rem 0.8rem; font-size:0.78rem; font-weight:700; cursor:pointer; }
+  #inviteToast .join-btn{ background:linear-gradient(45deg,#f472b6,#ec4899); color:#fff; }
+  #inviteToast .dismiss-btn{ background:#2a2f3f; color:#cbd5e1; }
+
+  /* ================================================================
+     In-game mic + text chat
+  ================================================================ */
+  #mpSocialBar{ position:absolute; top:16px; left:16px; z-index:12; display:flex; gap:8px; pointer-events:auto; }
+  #mpSocialBar.hidden{ display:none; }
+  #mpSocialBar button{
+    width:42px; height:42px; border-radius:50%; border:1px solid rgba(236,72,153,0.35);
+    background:rgba(10,13,22,0.75); color:#fff; font-size:1rem; cursor:pointer; pointer-events:auto;
+  }
+  #voiceMicBtn.muted{ background:rgba(220,38,38,0.65); border-color:#dc2626; }
+  #chatToggleBtn.has-unread::after{
+    content:''; position:absolute; width:8px; height:8px; background:#ec4899; border-radius:50%;
+    margin-right:28px; margin-top:-30px; display:block;
+  }
+  #chatPanel{
+    position:absolute; bottom:90px; left:16px; z-index:12; width:min(78vw,320px);
+    background:rgba(10,13,22,0.88); border:1px solid rgba(236,72,153,0.3); border-radius:12px;
+    display:flex; flex-direction:column; overflow:hidden; pointer-events:auto;
+  }
+  #chatPanel.hidden{ display:none; }
+  #chatMessages{ max-height:160px; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:4px; }
+  #chatMessages .msg{ font-size:0.78rem; color:#e5e7eb; line-height:1.4; }
+  #chatMessages .msg b{ color:#f472b6; }
+  .chat-input-row{ display:flex; border-top:1px solid rgba(236,72,153,0.2); }
+  .chat-input-row input{ flex:1; background:transparent; border:none; color:#fff; padding:0.6rem 0.7rem; font-size:0.82rem; pointer-events:auto; }
+  .chat-input-row input:focus{ outline:none; }
+  .chat-input-row button{ background:transparent; border:none; color:#f472b6; padding:0 0.8rem; cursor:pointer; pointer-events:auto; }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  جارٍ تحميل الموارد...
+  <div id="loadingProgressText" style="margin-top:0.4rem; font-size:0.85rem; opacity:0.8;"></div>
+</div>
+
+<!-- First screen ever shown: plain background + login only. Nothing else
+     exists behind it until an entry method is chosen. -->
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo"><i class="fa-solid fa-eye"></i></div>
+    <div class="auth-title horror-font">DON'T LOOK BACK</div>
+    <div class="auth-sub">سجّل دخولك للمتابعة</div>
+
+    <button class="auth-btn google" id="authGoogleBtn">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4c-7.4 0-13.8 4.1-17.1 10.2z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.4C29.6 35.2 26.9 36 24 36c-5.3 0-9.8-3.4-11.3-8.1l-6.6 5.1C9.9 39.8 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.7 2.1-2.1 3.9-3.9 5.1l6.6 5.4C41.6 35.9 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+      تسجيل الدخول بحساب Google
+    </button>
+    <button class="auth-btn" id="authNameToggleBtn"><i class="fa-solid fa-pen"></i> تسجيل الدخول بالاسم</button>
+
+    <div class="auth-name-form" id="authNameForm">
+      <input type="text" id="authNameInput" maxlength="14" placeholder="اكتب اسمك هون">
+      <button class="auth-btn primary" style="width:auto; margin:0; padding:0 1.1rem;" id="authNameSubmitBtn">دخول</button>
+    </div>
+
+    <div class="auth-divider">أو</div>
+    <button class="auth-btn primary" id="authGuestBtn"><i class="fa-solid fa-user-secret"></i> الدخول كضيف</button>
+
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<!-- Simple one-time skin pick — shown right after a fresh login, before
+     the hub, so the player picks boy/girl once instead of silently
+     defaulting to "boy". -->
+<div id="skinPickScreen" class="hidden">
+  <div class="auth-box">
+    <div class="auth-title" style="margin-bottom:0.3rem;">اختر شخصيتك</div>
+    <div class="auth-sub" style="margin-bottom:1.6rem;">تقدر تغيّرها لاحقًا من إعدادات فريدي</div>
+    <div class="skin-pick-row">
+      <button class="skin-pick-card" id="skinPickBoyBtn" data-gender="boy">
+        <i class="fa-solid fa-mars"></i>
+        <span>ولد</span>
+      </button>
+      <button class="skin-pick-card" id="skinPickGirlBtn" data-gender="girl">
+        <i class="fa-solid fa-venus"></i>
+        <span>بنت</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub-screen opened after tapping "ولد" above — lets the player pick
+     which boy model/skin to use (Zamour vs Karnak). Add more
+     cards here (with a matching CHARACTER_MODEL_URLS/CHARACTER_TEX_PREFIX
+     key in game.js) if more boy skins are added later. -->
+<div id="boySkinPickScreen" class="hidden">
+  <div class="auth-box">
+    <div class="auth-title" style="margin-bottom:0.3rem;">اختر شكل الولد</div>
+    <div class="auth-sub" style="margin-bottom:1.6rem;">تقدر تغيّره لاحقًا من إعدادات فريدي</div>
+    <div class="skin-pick-row">
+      <button class="skin-pick-card" id="skinPickBoy1Btn" data-gender="boy">
+        <i class="fa-solid fa-mars"></i>
+        <span>ولد 1</span>
+      </button>
+      <button class="skin-pick-card" id="skinPickBoy2Btn" data-gender="boy2">
+        <i class="fa-solid fa-user"></i>
+        <span>Karnak</span>
+      </button>
+    </div>
+    <button class="btn" id="boySkinPickBackBtn" style="margin-top:1.4rem;">رجوع</button>
+  </div>
+</div>
+
+<!-- Fallback if the browser refuses the landscape lock API -->
+<div id="rotateOverlay">
+  <div class="ic"><i class="fa-solid fa-mobile-screen-button"></i></div>
+  <div>رجاءً دوّر جهازك للوضع الأفقي للمتابعة</div>
+  <button id="rotateContinueBtn" class="auth-btn" style="width:auto; padding:0.7rem 1.6rem; margin-top:0.4rem;">متابعة على أي حال</button>
+</div>
+
+<button id="settingsGearBtn" title="الإعدادات"><i class="fa-solid fa-gear"></i></button>
+<div id="versionTag">v1.0</div>
+<button id="mpReturnToRoomBtn" class="hidden" title="الرجوع إلى غرفتي">
+  <i class="fa-solid fa-door-open"></i>
+  <span id="mpReturnToRoomCount">1</span>
+</button>
+
+<!-- Main menu (hub style) -->
+<div id="hubScreen" class="hidden">
+  <div class="hub-bg"></div>
+
+  <div class="hub-nav">
+    <button class="hub-nav-item" id="hubInventoryBtn" disabled>
+      <i class="ic fa-solid fa-suitcase"></i><span>الحقيبة</span>
+    </button>
+    <button class="hub-nav-item" id="hubMarketBtn">
+      <i class="ic fa-solid fa-cart-shopping"></i><span>المتجر</span>
+    </button>
+    <button class="hub-nav-item" id="hubRoomsBtn">
+      <i class="ic fa-solid fa-door-open"></i><span>الغرف</span>
+    </button>
+    <button class="hub-nav-item active play" id="hubPlayNavBtn">
+      <i class="ic fa-solid fa-play"></i><span>لعب</span>
+    </button>
+    <button class="hub-nav-item" id="hubFriendsBtn">
+      <i class="ic fa-solid fa-user-group"></i><span>أصدقاء</span>
+      <span class="nav-badge hidden" id="friendsBadge">0</span>
+    </button>
+    <button class="hub-nav-item" id="hubSettingsBtn">
+      <i class="ic fa-solid fa-gear"></i><span>إعدادات</span>
+    </button>
+  </div>
+
+  <div class="hub-main">
+    <div class="hub-topbar">
+      <div class="hub-stat-box">
+        <div class="stat-label"><i class="fa-solid fa-bolt" style="color:#f472b6;"></i> نقاط الخبرة</div>
+        <div class="stat-row"><span class="stat-val" id="hubXpVal">0/1200</span><span>اليوم</span></div>
+        <div class="hub-bar-track"><div class="hub-bar-fill" id="hubXpBar" style="width:0%"></div></div>
+      </div>
+
+      <div class="hub-account">
+        <img id="hubAvatarImg" src="" alt="" class="hidden">
+        <span id="hubAccountLabel">ما سجّلت دخول بعد</span>
+        <button class="g-btn" id="hubGoogleBtn">
+          <svg width="15" height="15" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4c-7.4 0-13.8 4.1-17.1 10.2z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.4C29.6 35.2 26.9 36 24 36c-5.3 0-9.8-3.4-11.3-8.1l-6.6 5.1C9.9 39.8 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.7 2.1-2.1 3.9-3.9 5.1l6.6 5.4C41.6 35.9 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+          <span id="hubGoogleBtnLabel">دخول بحساب Google</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hub-center">
+      <div class="hub-char-card">
+        <canvas id="hubCharCanvas"></canvas>
+        <i class="silhouette fa-solid fa-user-ninja" id="hubSilhouette"></i>
+        <div class="name-tag" id="hubNameTag"><i class="fa-solid fa-circle-user"></i> لاعب</div>
+      </div>
+    </div>
+
+    <div class="hub-bottombar">
+      <div style="text-align:center;">
+        <button class="hub-side-btn" id="hubPlayWithFriendsBtn2">
+          <i class="ic fa-solid fa-people-group"></i><span>لعب جماعي</span>
+        </button>
+      </div>
+      <div style="text-align:center;">
+        <button class="hub-play-btn" id="startBtn"><i class="fa-solid fa-play"></i> PLAY</button>
+        <div class="hub-soon-badge">فردي • وحش يطاردك</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hubVersionTag">v1.0</div>
+  <button id="playWithFriendsBtn" class="hidden" style="display:none;"></button>
+</div>
+
+<!-- Market — fullscreen (covers the whole phone screen, not a small popup).
+     Opened from the hub nav's "المتجر" button. Each card is one purchasable
+     outfit for Karnak (the "boy2" character); buying/equipping one swaps
+     which glTF CHARACTER_MODEL_URLS.boy2 points to — see marketApplyEquip()
+     in game.js. Add more cards here (with a matching entry in the
+     MARKET_ITEMS array in game.js) for future items. -->
+<div id="marketScreen" class="hidden">
+  <div class="market-topbar">
+    <button id="marketBackBtn" class="market-back-btn"><i class="fa-solid fa-arrow-right"></i></button>
+    <div class="market-tabs">
+      <button class="market-tab active" id="marketTabMarket" data-tab="market">السوق</button>
+      <button class="market-tab" id="marketTabRequests" data-tab="requests">الطلبات</button>
+      <button class="market-tab" id="marketTabShop" data-tab="shop">المتجر</button>
+    </div>
+  </div>
+  <div class="market-toolbar">
+    <button class="market-filter-btn" id="marketFilterBtn"><i class="fa-solid fa-sliders"></i> فلترة</button>
+    <button class="market-sort-btn" id="marketSortBtn"><i class="fa-solid fa-arrow-down-short-wide"></i></button>
+    <div class="market-balance"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="#f4c430"/><circle cx="22" cy="22" r="15" fill="#000000"/><text x="22" y="27" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="13" fill="#f4c430">TC</text></svg> <span id="marketBalanceVal">0</span></div>
+  </div>
+  <div class="market-grid" id="marketGrid"><!-- filled by renderMarketScreen() in game.js --></div>
+</div>
+
+<!-- Character + map lobby — opened by PLAY from the hub. Nothing starts
+     until the player picks a map here and presses the corner PLAY button. -->
+<div id="charLobbyScreen" class="hidden">
+  <div class="cl-topbar">
+    <button class="cl-back" id="clBackBtn"><i class="fa-solid fa-arrow-right"></i> رجوع</button>
+    <div class="cl-xp-box">
+      <div class="lbl"><span>نقاط الخبرة</span><span id="clXpVal">0/1200</span></div>
+      <div class="bar"><span id="clXpBar" style="width:0%"></span></div>
+      <div class="cl-xp-note">تكسب خبرة كل ما تكمل خريطة — تُستخدم لاحقًا لفتح لبس جديد بالمتجر</div>
+    </div>
+  </div>
+
+  <div class="cl-body">
+    <div class="cl-char-stage">
+      <canvas id="clCharCanvas"></canvas>
+      <div class="silhouette" id="clSilhouette"><i class="fa-solid fa-user-ninja"></i></div>
+    </div>
+
+    <div class="cl-maps">
+      <div class="cl-maps-title">اختر الخريطة</div>
+      <div class="map-card selected" data-map="corridor">
+        <div class="thumb" style="background-image:url('models/corridor/textures/TextureMaterial_42_baseColor.png');"></div>
+        <div class="info"><div class="name">الممر المهجور</div><div class="desc">ممرات ضيقة ومظلمة</div></div>
+      </div>
+      <div class="map-card" data-map="hospital">
+        <div class="thumb" style="background-image:url('models/hospital/textures/47m_3_baseColor.jpeg');"></div>
+        <div class="info"><div class="name">المستشفى</div><div class="desc">أروقة مهجورة وغرف مغلقة</div></div>
+      </div>
+      <div class="map-card soon" data-map="house">
+        <div class="thumb"><i class="fa-solid fa-house"></i></div>
+        <div class="info"><div class="name">البيت</div><div class="desc">قريبًا</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cl-bottombar">
+    <button class="cl-freddy-btn" id="clFreddyBtn"><i class="ic fa-solid fa-mask"></i><span>إعدادات فريدي</span></button>
+    <button class="cl-play-btn" id="clPlayBtn"><i class="fa-solid fa-play"></i> PLAY</button>
+  </div>
+</div>
+
+<!-- Freddy-specific settings: monster difficulty, your name & look — the
+     stuff that changes how the monster plays, separate from general
+     graphics/audio settings. -->
+<div id="freddySettingsScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;"><i class="fa-solid fa-mask"></i> إعدادات فريدي</h1>
+  <div class="panel-box">
+    <div class="instructions" style="text-align:center; margin-bottom:0.4rem;">هاي الإعدادات الخاصة بالوحش واللاعب — تتحكم كيف يلعب فريدي معك.</div>
+    <div class="form-group">
+      <label>صعوبة الوحش</label>
+      <select id="freddyDifficultySelect">
+        <option value="none">بدون وحش</option>
+        <option value="easy">سهل</option>
+        <option value="normal">عادي</option>
+        <option value="hard">صعب</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>اسمك (يظهر للأصدقاء)</label>
+      <input type="text" id="freddyPlayerNameField" maxlength="14" placeholder="اسمك">
+    </div>
+    <div class="form-group">
+      <label>شخصيتك</label>
+      <div class="char-pick">
+        <label><input type="radio" name="freddyGenderPick" value="boy"><span><i class="fa-solid fa-mars"></i> ولد 1</span></label>
+        <label><input type="radio" name="freddyGenderPick" value="girl"><span><i class="fa-solid fa-venus"></i> بنت</span></label>
+        <label><input type="radio" name="freddyGenderPick" value="boy2"><span><i class="fa-solid fa-user"></i> Karnak</span></label>
+      </div>
+    </div>
+    <button class="btn" id="freddySettingsBackBtn">حفظ ورجوع</button>
+  </div>
+</div>
+
+<!-- Friends — real request/accept + invite-into-room system -->
+<div id="friendsScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;"><i class="fa-solid fa-user-group"></i> الأصدقاء</h1>
+  <div class="panel-box">
+    <div class="my-code-box">
+      <div class="lbl">كودك — شاركه مع صديقك ليضيفك</div>
+      <div class="code-row">
+        <span id="myFriendCodeVal">—</span>
+        <button id="copyFriendCodeBtn" title="نسخ"><i class="fa-solid fa-copy"></i></button>
+      </div>
+    </div>
+
+    <div class="friend-add-row">
+      <input type="text" id="friendAddInput" placeholder="اكتب كود صديقك هون">
+      <button id="friendAddBtn">إرسال طلب</button>
+    </div>
+    <div class="auth-error" id="friendAddError"></div>
+
+    <div id="friendRequestsBox" style="display:none;">
+      <div class="lbl">طلبات صداقة جديدة</div>
+      <ul class="player-list" id="friendRequestsList"></ul>
+    </div>
+
+    <div class="lbl" style="margin-top:0.8rem;">أصدقاؤك</div>
+    <ul class="player-list" id="friendsList">
+      <li><span>ما عندك أصدقاء مضافين لسا</span></li>
+    </ul>
+
+    <button class="btn secondary" id="friendsBackBtn">رجوع</button>
+  </div>
+</div>
+
+<!-- Popup shown when a friend invites you straight into their room -->
+<div id="inviteToast" class="hidden"></div>
+
+<div id="menuScreen" class="overlay hidden">
+  <div class="panel-box" id="leaderboardPanel" style="margin-top:14px; display:none;">
+    <div class="subtitle" style="margin-bottom:0.8rem;">الأسرع عالميًا</div>
+    <ol id="leaderboardList" style="text-align:right; padding-inline-start:1.4em; font-size:0.9rem; color:#cbbfb4; line-height:1.9;"></ol>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settingsScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.4rem;">الإعدادات</h1>
+  <div class="panel-box">
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-tab="graphics">الجرافيك</button>
+      <button class="settings-tab" data-tab="audio">الأصوات</button>
+      <button class="settings-tab" data-tab="general">عامة</button>
+      <button class="settings-tab" data-tab="account">الحساب</button>
+    </div>
+
+    <div class="settings-panel active" id="tabGraphics">
+      <div class="form-group">
+        <label>جودة الرسوميات</label>
+        <select id="graphicsQualitySelect">
+          <option value="low">منخفضة (أداء أفضل للأجهزة الضعيفة)</option>
+          <option value="medium">متوسطة</option>
+          <option value="high">عالية</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>معدل الإطارات في الثانية (FPS)</label>
+        <select id="fpsCapSelect">
+          <option value="30">30</option>
+          <option value="60">60</option>
+          <option value="100">100</option>
+          <option value="130">130</option>
+          <option value="0">غير محدود</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-panel" id="tabAudio">
+      <div class="form-group">
+        <label>صوت الوحش <span class="range-val" id="monsterVolVal">100%</span></label>
+        <input type="range" id="monsterVolRange" min="0" max="100" step="5" value="100">
+      </div>
+      <div class="form-group">
+        <label>صوت اللعبة العام <span class="range-val" id="gameVolVal">100%</span></label>
+        <input type="range" id="gameVolRange" min="0" max="100" step="5" value="100">
+      </div>
+    </div>
+
+    <div class="settings-panel" id="tabGeneral">
+      <div class="form-group">
+        <label>حساسية النظر <span class="range-val" id="sensVal">1.0</span></label>
+        <input type="range" id="sensRange" min="0.4" max="2.5" step="0.1" value="1.0">
+      </div>
+      <div class="form-group">
+        <label>زاوية الرؤية FOV <span class="range-val" id="fovVal">72</span></label>
+        <input type="range" id="fovRange" min="60" max="100" step="1" value="72">
+      </div>
+      <div class="form-group">
+        <label>زاوية الكاميرا POV <span class="range-val" id="povVal">منظور اللاعب</span></label>
+        <input type="range" id="povRange" min="0" max="1" step="1" value="0">
+      </div>
+    </div>
+
+    <div class="settings-panel" id="tabAccount">
+      <div class="form-group">
+        <label>معرّف الحساب (ID)</label>
+        <div class="code-row" style="justify-content:space-between;">
+          <span id="accountIdVal" style="font-size:0.85rem; color:#d1d5db; word-break:break-all;">—</span>
+          <button id="copyAccountIdBtn" title="نسخ"><i class="fa-solid fa-copy"></i></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>الاسم</label>
+        <div style="font-size:0.9rem; color:#d1d5db;" id="accountNameVal">لاعب</div>
+      </div>
+      <button class="btn secondary" id="accountLogoutBtn" style="width:100%;"><i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج</button>
+      <button class="btn secondary" id="accountDeleteBtn" style="width:100%; color:#f87171;"><i class="fa-solid fa-trash"></i> حذف الحساب</button>
+      <div class="auth-error" id="accountError"></div>
+    </div>
+
+    <button class="btn" id="settingsBackBtn">حفظ ورجوع</button>
+    <button class="btn secondary" id="exitGameBtn">خروج</button>
+  </div>
+</div>
+
+<!-- Play with friends: the room list is now the main screen itself (the
+     big box) instead of a chooser with two buttons leading to a separate
+     browse screen. "Create room" stays the old button/flow (opens the
+     full settings form), just moved into the top bar here. -->
+<div id="mpChoiceScreen" class="overlay hidden mp-browse">
+  <div class="mp-browse-topbar">
+    <div class="mp-browse-tabs">
+      <button class="mp-tab active" id="mpTabOnline" data-tab="online">متصل</button>
+      <button class="mp-tab" id="mpTabLocal" data-tab="local">محلي</button>
+    </div>
+    <button class="mp-browse-refresh" id="mpBrowseRefreshBtn" title="تحديث"><i class="fa-solid fa-arrows-rotate"></i></button>
+    <div class="mp-browse-spacer"></div>
+    <button class="mp-filter-btn" id="mpFilterBtn">تصفية <i class="fa-solid fa-chevron-down"></i></button>
+    <div class="mp-search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="mpBrowseSearchInput" placeholder="بحث عن طريق الكود" maxlength="5">
+    </div>
+    <button class="btn secondary" id="mpJoinEnterBtn" style="padding:0 14px; height:38px; margin-top:0; font-size:0.85rem; display:flex; align-items:center;">الانضمام بكود</button>
+  </div>
+  <div class="mp-browse-header-row">
+    <div class="mp-col-star"><i class="fa-solid fa-star"></i></div>
+    <div class="mp-col-name">الاسم &amp; الخريطة</div>
+    <div class="mp-col-mode">وضع اللعب</div>
+    <div class="mp-col-settings">إعدادات</div>
+    <div class="mp-col-players">لاعبين</div>
+  </div>
+  <div class="mp-browse-list" id="mpBrowseList"><!-- filled by renderMpBrowseList() in game.js --></div>
+  <button class="mp-browse-back" id="mpChoiceBackBtn"><i class="fa-solid fa-arrow-right"></i></button>
+  <div class="mp-create-circle-wrap" id="mpCreateEnterBtn" title="إنشاء خادم خاص">
+    <div class="mp-create-circle"></div>
+    <span class="mp-create-circle-label">إنشاء غرفة</span>
+  </div>
+</div>
+
+<!-- Create server settings -->
+<div id="mpCreateScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;">إنشاء خادم</h1>
+  <div class="panel-box">
+    <div class="form-group">
+      <label>الصعوبة / الوحش</label>
+      <select id="mpDifficultySelect">
+        <option value="none">بدون وحش</option>
+        <option value="easy">سهل</option>
+        <option value="normal" selected>عادي</option>
+        <option value="hard">صعب</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>الخريطة</label>
+      <select id="mpMapSelect">
+        <option value="corridor">الممر المهجور</option>
+        <option value="hospital">المستشفى</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>عدد اللاعبين المسموح (2-8)</label>
+      <input type="number" id="mpMaxPlayers" min="2" max="8" value="4">
+    </div>
+    <div class="toggle-row">
+      <span>غرفة خاصة (بكود فقط)</span>
+      <label class="switch">
+        <input type="checkbox" id="mpPrivateToggle">
+        <span class="switch-track"></span>
+      </label>
+    </div>
+    <button class="btn" id="mpCreateSubmitBtn">إنشاء</button>
+    <button class="btn secondary" id="mpCreateBackBtn">رجوع</button>
+    <div class="error-msg" id="mpCreateError"></div>
+  </div>
+</div>
+
+<!-- Join by code -->
+<div id="mpJoinScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;">الانضمام لخادم</h1>
+  <div class="panel-box">
+    <input class="code-input" id="mpJoinCodeInput" maxlength="5" placeholder="XXXXX">
+    <button class="btn" id="mpJoinSubmitBtn" style="width:100%;">دخول</button>
+    <button class="btn secondary" id="mpJoinBackBtn" style="width:100%;">رجوع</button>
+    <div class="error-msg" id="mpJoinError"></div>
+  </div>
+</div>
+
+<!-- Local (LAN) play — host side: generate an offer code, paste the guest's
+     answer code back in to connect. No server involved at all. -->
+<div id="mpLocalHostScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;">استضافة محلية</h1>
+  <div class="panel-box">
+    <div class="form-group">
+      <label>الصعوبة / الوحش</label>
+      <select id="mpLocalDifficultySelect">
+        <option value="none">بدون وحش</option>
+        <option value="easy">سهل</option>
+        <option value="normal" selected>عادي</option>
+        <option value="hard">صعب</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>الخريطة</label>
+      <select id="mpLocalMapSelect">
+        <option value="corridor">الممر المهجور</option>
+        <option value="hospital">المستشفى</option>
+      </select>
+    </div>
+    <button class="btn" id="mpLocalHostGenBtn">١- إنشاء كود الدعوة</button>
+    <div id="mpLocalHostStep2" style="display:none;">
+      <div class="instructions" style="text-align:center; margin-top:10px;">أرسل هذا الكود للاعب الثاني:</div>
+      <textarea id="mpLocalHostOfferField" readonly rows="3" style="width:100%; font-family:monospace; font-size:0.75rem; word-break:break-all; resize:none;"></textarea>
+      <button class="btn secondary" id="mpLocalHostCopyBtn" style="width:100%;">نسخ الكود</button>
+      <div class="instructions" style="text-align:center; margin-top:10px;">٢- الصق الرد اللي يرسله لك اللاعب الثاني:</div>
+      <textarea id="mpLocalHostAnswerField" rows="3" style="width:100%; font-family:monospace; font-size:0.75rem; word-break:break-all; resize:none;"></textarea>
+      <button class="btn" id="mpLocalHostConnectBtn" style="width:100%;">اتصال</button>
+    </div>
+    <button class="btn secondary" id="mpLocalHostBackBtn" style="width:100%;">رجوع</button>
+    <div class="error-msg" id="mpLocalHostError"></div>
+  </div>
+</div>
+
+<!-- Local (LAN) play — guest side: paste the host's offer code, get an
+     answer code to send back. -->
+<div id="mpLocalJoinScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;">الانضمام لغرفة محلية</h1>
+  <div class="panel-box">
+    <div class="instructions" style="text-align:center;">١- الصق الكود اللي أرسله لك المضيف:</div>
+    <textarea id="mpLocalJoinOfferField" rows="3" style="width:100%; font-family:monospace; font-size:0.75rem; word-break:break-all; resize:none;"></textarea>
+    <button class="btn" id="mpLocalJoinGenBtn" style="width:100%;">إنشاء الرد</button>
+    <div id="mpLocalJoinStep2" style="display:none;">
+      <div class="instructions" style="text-align:center; margin-top:10px;">٢- أرسل هذا الرد للمضيف:</div>
+      <textarea id="mpLocalJoinAnswerField" readonly rows="3" style="width:100%; font-family:monospace; font-size:0.75rem; word-break:break-all; resize:none;"></textarea>
+      <button class="btn secondary" id="mpLocalJoinCopyBtn" style="width:100%;">نسخ الرد</button>
+      <button class="btn" id="mpLocalJoinEnterLobbyBtn" style="width:100%;">دخول غرفة الانتظار</button>
+    </div>
+    <button class="btn secondary" id="mpLocalJoinBackBtn" style="width:100%;">رجوع</button>
+    <div class="error-msg" id="mpLocalJoinError"></div>
+  </div>
+</div>
+
+<!-- Lobby -->
+<div id="mpLobbyScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="font-size:2.2rem;">غرفة الانتظار</h1>
+  <div class="panel-box">
+    <div class="instructions" style="text-align:center;">أرسل هذا الكود لأصدقائك:</div>
+    <div class="code-display" id="mpLobbyCode">-----</div>
+    <ul class="player-list" id="mpLobbyPlayers"></ul>
+    <button class="btn" id="mpStartGameBtn">ابدأ اللعبة</button>
+    <div class="small-note" id="mpWaitingNote">بانتظار المضيف لبدء اللعبة...</div>
+    <button class="btn secondary" id="mpLobbyBrowseBtn">الخروج للتفقّد (تبقى بالغرفة)</button>
+    <button class="btn secondary" id="mpLeaveLobbyBtn">مغادرة</button>
+  </div>
+</div>
+
+<!-- Game over -->
+<div id="deathScreen" class="overlay hidden">
+  <h1 class="title-flicker horror-font" style="color:#d61f1f;">GAME OVER</h1>
+  <div class="panel-box">
+    <div class="instructions" style="text-align:center;">لن تخرج من Don't Look Back الليلة.</div>
+    <div class="go-buttons">
+      <button class="btn-cracked" id="retryBtn">
+        <div class="crack c1"></div><div class="crack c2"></div><div class="crack c3"></div>
+        <span>Play Again</span>
+      </button>
+      <button class="btn-cracked exit" id="menuFromDeathBtn">
+        <div class="crack c1"></div><div class="crack c2"></div><div class="crack c3"></div>
+        <span>Exit</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Win screen -->
+<div id="winScreen" class="overlay hidden">
+  <h1 class="title-flicker" style="color:#e8973a;">لقد نجوتَ</h1>
+  <div class="panel-box">
+    <div class="instructions" style="text-align:center;" id="winStats">فتحتَ الباب وخرجت... لكن هل تركك المنزل حقًا؟</div>
+    <div id="scoreSubmitBox" style="display:none; margin-top:1rem;">
+      <input id="playerNameInput" maxlength="16" placeholder="اسمك (اختياري)"
+        style="width:100%; padding:0.6rem 0.8rem; border-radius:4px; border:1px solid #ec4899; background:#151b2b; color:#ffffff; text-align:center; font-size:0.95rem;">
+      <button class="btn secondary" id="submitScoreBtn" style="width:100%;">إرسال النتيجة للترتيب العالمي</button>
+    </div>
+    <button class="btn" id="playAgainBtn">العب مجددًا</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="vignette"></div>
+  <div id="dangerVignette"></div>
+  <div id="crosshair"></div>
+  <div id="interactPrompt">اضغط E للالتقاط</div>
+  <div id="objectiveToast"></div>
+
+  <div id="keysHud">
+    <div class="key-pip" id="pip0"></div>
+    <div class="key-pip" id="pip1"></div>
+    <div class="key-pip" id="pip2"></div>
+  </div>
+
+  <div id="batteryHud">
+    <div class="battery-icon">
+      <div class="battery-body"><div class="battery-fill" id="batteryFill"></div></div>
+      <div class="battery-nub"></div>
+    </div>
+    <span id="batteryPercent">100%</span>
+  </div>
+
+  <div class="hud-bottom">
+    <div class="meter-wrap">
+      <div class="meter-label">التحمّل</div>
+      <div class="meter"><div class="meter-fill" id="staminaFill"></div></div>
+    </div>
+  </div>
+
+  <div id="touchControls">
+    <div class="stick-zone" id="moveStick"><div class="stick-knob" id="moveKnob"></div></div>
+    <div id="lookZone"></div>
+    <button id="jumpBtn"><i class="fa-solid fa-arrow-up"></i></button>
+    <button id="runBtn"><i class="fa-solid fa-person-running"></i></button>
+    <button id="flashlightBtn"><i class="fa-solid fa-lightbulb"></i></button>
+  </div>
+
+  <!-- In-game mic + text chat — only shown while playing in a multiplayer room -->
+  <div id="mpSocialBar" class="hidden">
+    <button id="voiceMicBtn" title="المايك"><i class="fa-solid fa-microphone"></i></button>
+    <button id="chatToggleBtn" title="الشات"><i class="fa-solid fa-comment"></i></button>
+  </div>
+  <div id="chatPanel" class="hidden">
+    <div id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" maxlength="140" placeholder="اكتب رسالة...">
+      <button id="chatSendBtn"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+  </div>
+</div>
+
+<div id="staticFlash"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/utils/SkeletonUtils.js"></script>
+<!-- FBXLoader needs fflate loaded first (it uses it to inflate embedded/compressed
+     FBX data) — without it THREE.FBXLoader throws as soon as it's used. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="leaderboard.js"></script>
+<script src="multiplayer.js"></script>
+<script src="voicechat.js"></script>
+<script src="controls.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

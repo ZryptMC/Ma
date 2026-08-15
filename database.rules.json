@@ -1,0 +1,71 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      "$code": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['hostId','status']) || !newData.exists()",
+        "maxPlayers": { ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 8" },
+        "difficulty": { ".validate": "newData.val() === 'none' || newData.val() === 'easy' || newData.val() === 'normal' || newData.val() === 'hard'" },
+        "status": { ".validate": "newData.val() === 'lobby' || newData.val() === 'playing'" },
+        "players": {
+          "$uid": {
+            "name": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "x": { ".validate": "newData.isNumber()" },
+            "z": { ".validate": "newData.isNumber()" },
+            "yaw": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "monster": {
+          ".validate": true
+        },
+        "chat": {
+          "$msgId": {
+            "uid": { ".validate": "newData.isString()" },
+            "name": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "text": { ".validate": "newData.isString() && newData.val().length <= 140" },
+            "at": { ".validate": true }
+          }
+        },
+        "rtc": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": true,
+        ".write": true,
+        "name": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "friends": {
+          "$fid": {
+            "name": { ".validate": "newData.isString()" },
+            "since": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "friendRequestsIncoming": {
+          "$fid": {
+            "name": { ".validate": "newData.isString()" },
+            "at": { ".validate": true }
+          }
+        },
+        "invites": {
+          "$code": {
+            "from": { ".validate": "newData.isString()" },
+            "fromName": { ".validate": "newData.isString()" },
+            "at": { ".validate": true }
+          }
+        }
+      }
+    },
+    "meta": {
+      "guestCounter": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.isNumber()"
+      }
+    }
+  }
+}
